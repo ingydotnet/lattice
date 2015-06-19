@@ -1,7 +1,7 @@
 module "lattice-openstack" {
-    source = "github.com/cloudfoundry-incubator/lattice//terraform//openstack?ref=v0.2.5"
+    source = "github.com/hpcloud/lattice//terraform//hpcloud?ref=hpcloud"
 
-    # OpenStack User Account
+    # OpenStack User Account (your hpcloud.com username)
     openstack_access_key = "<CHANGE-ME>"
 
     # OpenStack Password
@@ -10,7 +10,7 @@ module "lattice-openstack" {
     # OpenStack Tenant Name
     openstack_tenant_name = "<CHANGE-ME>"
 
-    # SSH Key Name
+    # SSH Key Name (do not use an existing key-name, a new one will be created for you)
     openstack_key_name = "<CHANGE-ME>"
 
     # SSH Public Key to Upload
@@ -19,24 +19,30 @@ module "lattice-openstack" {
     # Path & filename of the SSH private key file
     openstack_ssh_private_key_file = "<CHANGE-ME>"
 
+    # This is the user used to login to VM instances via SSH 
+    openstack_ssh_user = "ubuntu"
+
     # The number of Lattice Cells to launch
-    num_cells = "3"
+    num_cells = "1"
 
     # URI of Keystone authentication agent
-    openstack_keystone_uri = "<CHANGE-ME>"
+    # You shouldn't need to change this setting when deploying to hpcloud.com
+    openstack_keystone_uri = "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/"
 
     # Instance Flavor Types
-    openstack_instance_type_coordinator = "<CHANGE-ME>"
-    openstack_instance_type_cell = "<CHANGE-ME>"
+    openstack_instance_type_coordinator = "standard.medium"
+    openstack_instance_type_cell = "standard.medium"
 
     # The internet-facing network which Neutron L3 routers should use as a gateway (UUID)
-    openstack_neutron_router_gateway_network_id = "<CHANGE-ME>"
+    # You shouldn't need to change this setting when deploying to hpcloud.com
+    openstack_neutron_router_gateway_network_id = "7da74520-9d5e-427b-a508-213c84e69616"
 
     # The name of the pool that floating IP addresses will be requested from
-    openstack_floating_ip_pool_name = "<CHANGE-ME>"
+    # You shouldn't need to change this setting when deploying to hpcloud.com
+    openstack_floating_ip_pool_name = "Ext-Net"
 
     # The name of the Openstack Glance image used to spin up all VM instances.
-    openstack_image = "<CHANGE-ME>"
+    openstack_image = "Ubuntu Server 14.04.1 LTS (amd64 20140927) - Partner Image"
 
     #################################
     ###  Optional Settings Below  ###
@@ -47,7 +53,8 @@ module "lattice-openstack" {
     # local_lattice_tar_path = "~/lattice.tgz"
 
     # Openstack Region (Blank default for 'no region' installations)
-    # openstack_region = "<CHANGE-ME>"
+    # The default is US East, use region-a.geo-1 for US West
+    openstack_region = "region-b.geo-1"
 }
 
 output "lattice_target" {
