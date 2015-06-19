@@ -19,11 +19,21 @@ module "lattice-openstack" {
     # Path & filename of the SSH private key file
     openstack_ssh_private_key_file = "<CHANGE-ME>"
 
-    # This is the user used to login to VM instances via SSH 
-    openstack_ssh_user = "ubuntu"
-
     # The number of Lattice Cells to launch
     num_cells = "1"
+
+    # Lattice Username
+    lattice_username = "user"
+
+    # Lattice Password
+    lattice_password = "pass"
+
+    #################################
+    ###  Optional Settings Below  ###
+    #################################
+
+    # This is the user used to login to VM instances via SSH 
+    openstack_ssh_user = "ubuntu"
 
     # URI of Keystone authentication agent
     # You shouldn't need to change this setting when deploying to hpcloud.com
@@ -43,10 +53,6 @@ module "lattice-openstack" {
 
     # The name of the Openstack Glance image used to spin up all VM instances.
     openstack_image = "Ubuntu Server 14.04.1 LTS (amd64 20140927) - Partner Image"
-
-    #################################
-    ###  Optional Settings Below  ###
-    #################################
 
     #If you wish to use your own lattice release instead of the latest version, uncomment the variable assignment below
     #and set it to your own lattice tar's path.
