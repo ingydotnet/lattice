@@ -95,11 +95,13 @@ resource "openstack_compute_instance_v2" "lattice-coordinator" {
         lattice-role = "coordinator"
     }
     network {
+        fixed_ip_v4 = "${var.openstack_coordinator_fixed_ip}"
         uuid = "${openstack_networking_network_v2.lattice-network.id}"
     }
     floating_ip = "${openstack_compute_floatingip_v2.fip-1.address}"
 
     connection {
+        host = "${openstack_compute_floatingip_v2.fip-1.address}"
         user = "${var.openstack_ssh_user}"
         key_file = "${var.openstack_ssh_private_key_file}"
     }
@@ -121,6 +123,8 @@ resource "openstack_compute_instance_v2" "lattice-coordinator" {
 
     provisioner "remote-exec" {
       inline = [
+          "sudo apt-get update -q > /dev/null",
+          "sudo apt-get install -q -y build-essential quota > /dev/null",
           "sudo chmod 755 /tmp/install-from-tar",
           "sudo bash -c \"echo 'PATH_TO_LATTICE_TAR=${var.local_lattice_tar_path}' >> /etc/environment\"" #SHOULDN'T PATH_TO_LATTICE_TAR be set to /tmp/lattice.tgz???
       ]
@@ -132,7 +136,7 @@ resource "openstack_compute_instance_v2" "lattice-coordinator" {
             "sudo mkdir -p /var/lattice/setup",
             "sudo sh -c 'echo \"LATTICE_USERNAME=${var.lattice_username}\" > /var/lattice/setup/lattice-environment'",
             "sudo sh -c 'echo \"LATTICE_PASSWORD=${var.lattice_password}\" >> /var/lattice/setup/lattice-environment'",
-            "sudo sh -c 'echo \"CONSUL_SERVER_IP=${openstack_compute_instance_v2.lattice-coordinator.access_ip_v4}\" >> /var/lattice/setup/lattice-environment'",
+            "sudo sh -c 'echo \"CONSUL_SERVER_IP=${var.openstack_coordinator_fixed_ip}\" >> /var/lattice/setup/lattice-environment'",
             "sudo sh -c 'echo \"SYSTEM_DOMAIN=${openstack_compute_instance_v2.lattice-coordinator.floating_ip}.xip.io\" >> /var/lattice/setup/lattice-environment'",
         ]
     }
@@ -163,6 +167,7 @@ resource "openstack_compute_instance_v2" "lattice-cell" {
     floating_ip = "${element(openstack_compute_floatingip_v2.fip-worker.*.address, count.index)}"
 
     connection {
+        host = "${element(openstack_compute_floatingip_v2.fip-worker.*.address, count.index)}"
         user = "${var.openstack_ssh_user}"
         key_file = "${var.openstack_ssh_private_key_file}"
     }
@@ -184,6 +189,8 @@ resource "openstack_compute_instance_v2" "lattice-cell" {
 
     provisioner "remote-exec" {
       inline = [
+          "sudo apt-get update -q > /dev/null",
+          "sudo apt-get install -q -y build-essential quota > /dev/null",
           "sudo chmod 755 /tmp/install-from-tar",
           "sudo bash -c \"echo 'PATH_TO_LATTICE_TAR=${var.local_lattice_tar_path}' >> /etc/environment\""
       ]
@@ -193,7 +200,7 @@ resource "openstack_compute_instance_v2" "lattice-cell" {
     provisioner "remote-exec" {
         inline = [
             "sudo mkdir -p /var/lattice/setup",
-            "sudo sh -c 'echo \"CONSUL_SERVER_IP=${openstack_compute_instance_v2.lattice-coordinator.access_ip_v4}\" >> /var/lattice/setup/lattice-environment'",
+            "sudo sh -c 'echo \"CONSUL_SERVER_IP=${var.openstack_coordinator_fixed_ip}\" >> /var/lattice/setup/lattice-environment'",
             "sudo sh -c 'echo \"SYSTEM_DOMAIN=${openstack_compute_instance_v2.lattice-coordinator.floating_ip}.xip.io\" >> /var/lattice/setup/lattice-environment'",
             "sudo sh -c 'echo \"LATTICE_CELL_ID=lattice-cell-${count.index}\" >> /var/lattice/setup/lattice-environment'",
             "sudo sh -c 'echo \"GARDEN_EXTERNAL_IP=$(hostname -I | awk '\"'\"'{ print $1 }'\"'\"')\" >> /var/lattice/setup/lattice-environment'",

@@ -41,6 +41,11 @@ variable "openstack_subnet_cidr_block" {
     default = "10.0.1.0/24"
 }
 
+variable "openstack_coordinator_fixed_ip" {
+    description = "The IPv4 address to assign to coordinator. Needed since access_ip_v4 is not exported on first run on hpcloud.com."
+    default = "10.0.1.2"
+}
+
 variable "openstack_neutron_router_gateway_network_id" {
     description = "The UUID of the network that will be used as WAN breakout for the neutron L3 Router"
 }
