@@ -104,30 +104,30 @@ resource "openstack_compute_instance_v2" "lattice-coordinator" {
         host = "${openstack_compute_floatingip_v2.fip-1.address}"
         user = "${var.openstack_ssh_user}"
         key_file = "${var.openstack_ssh_private_key_file}"
+        agent = false
     }
 
     #COMMON
     provisioner "local-exec" {
-      command = "LOCAL_LATTICE_TAR_PATH=${var.local_lattice_tar_path} LATTICE_VERSION_FILE_PATH=${path.module}/../../Version ${path.module}/../scripts/local/download-lattice-tar"
+        command = "LOCAL_LATTICE_TAR_PATH=${var.local_lattice_tar_path} LATTICE_VERSION_FILE_PATH=${path.module}/../../Version ${path.module}/../scripts/local/download-lattice-tar"
     }
 
     provisioner "file" {
-      source = "${var.local_lattice_tar_path}"
-      destination = "/tmp/lattice.tgz"
+        source = "${var.local_lattice_tar_path}"
+        destination = "/tmp/lattice.tgz"
     }
 
     provisioner "file" {
-      source = "${path.module}/../scripts/remote/install-from-tar"
-      destination = "/tmp/install-from-tar"
+        source = "${path.module}/../scripts/remote/install-from-tar"
+        destination = "/tmp/install-from-tar"
     }
 
     provisioner "remote-exec" {
-      inline = [
-          "sudo apt-get update -q > /dev/null",
-          "sudo apt-get install -q -y build-essential quota > /dev/null",
-          "sudo chmod 755 /tmp/install-from-tar",
-          "sudo bash -c \"echo 'PATH_TO_LATTICE_TAR=${var.local_lattice_tar_path}' >> /etc/environment\"" #SHOULDN'T PATH_TO_LATTICE_TAR be set to /tmp/lattice.tgz???
-      ]
+        inline = [
+            "sudo apt-get update",
+            "sudo apt-get install -q -y build-essential quota > /dev/null",
+            "sudo apt-get -y install btrfs-tools",
+        ]
     }
     #/COMMON
 
@@ -142,12 +142,13 @@ resource "openstack_compute_instance_v2" "lattice-coordinator" {
     }
 
     provisioner "remote-exec" {
-        script = "${path.module}/../scripts/remote/install-brain"
+        inline = [
+            "sudo apt-get -y install lighttpd lighttpd-mod-webdav",
+            "sudo chmod 755 /tmp/install-from-tar",
+            "sudo /tmp/install-from-tar brain",
+        ]
     }
 }
-
-
-
 
 resource "openstack_compute_instance_v2" "lattice-cell" {
     count = "${var.num_cells}"
@@ -170,6 +171,7 @@ resource "openstack_compute_instance_v2" "lattice-cell" {
         host = "${element(openstack_compute_floatingip_v2.fip-worker.*.address, count.index)}"
         user = "${var.openstack_ssh_user}"
         key_file = "${var.openstack_ssh_private_key_file}"
+        agent = false
     }
 
     #COMMON
@@ -188,12 +190,11 @@ resource "openstack_compute_instance_v2" "lattice-cell" {
     }
 
     provisioner "remote-exec" {
-      inline = [
-          "sudo apt-get update -q > /dev/null",
-          "sudo apt-get install -q -y build-essential quota > /dev/null",
-          "sudo chmod 755 /tmp/install-from-tar",
-          "sudo bash -c \"echo 'PATH_TO_LATTICE_TAR=${var.local_lattice_tar_path}' >> /etc/environment\""
-      ]
+        inline = [
+            "sudo apt-get update",
+             "sudo apt-get install -q -y build-essential quota",
+            "sudo apt-get -y install btrfs-tools",
+        ]
     }
     #/COMMON
 
@@ -208,7 +209,9 @@ resource "openstack_compute_instance_v2" "lattice-cell" {
     }
 
     provisioner "remote-exec" {
-        script = "${path.module}/../scripts/remote/install-cell"
+        inline = [
+            "sudo chmod 755 /tmp/install-from-tar",
+            "sudo /tmp/install-from-tar cell",
+        ]
     }
-
 }
