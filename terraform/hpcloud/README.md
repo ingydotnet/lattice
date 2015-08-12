@@ -41,7 +41,7 @@ This project contains [Terraform](https://www.terraform.io/) templates to help y
 
 Here are some step-by-step instructions for configuring a Lattice cluster via Terraform:
 
-1. Download [`lattice.openstack.tf`](https://github.com/hpcloud/lattice/raw/hpcloud/terraform/hpcloud/example/lattice.openstack.tf)
+1. Download [`lattice.openstack.tf`](https://github.com/hpcloud/lattice/raw/hpcloudV3/terraform/hpcloud/example/lattice.openstack.tf)
 2. Create an empty folder and place the `lattice.openstack.tf` file in that folder.
 3. Update the `lattice.openstack.tf` by filling in the values for the variables.  Details for the values of those variables are below.
 
