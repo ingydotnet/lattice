@@ -6,7 +6,7 @@ resource "openstack_compute_keypair_v2" "lattice-key" {
 
 resource "openstack_compute_secgroup_v2" "lattice-sg" {
     region = "${var.openstack_region}"
-    name = "lattice-sg"
+    name = "${var.openstack_secgroup}"
     description = "Security Group for Lattice"
     rule {
         from_port = 22

@@ -10,6 +10,9 @@ module "lattice-openstack" {
     # OpenStack Tenant Name
     openstack_tenant_name = "<CHANGE-ME>"
 
+    # Security Group Name (do not use an existing security group, a new one will be created for you)
+    openstack_secgroup = "lattice-sg"
+
     # SSH Key Name (do not use an existing key-name, a new one will be created for you)
     openstack_key_name = "<CHANGE-ME>"
 

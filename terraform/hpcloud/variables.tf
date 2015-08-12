@@ -19,8 +19,13 @@ variable "openstack_region" {
     default = ""
 }
 
+
 variable "openstack_key_name" {
     description = "The SSH key name to use for the instances."
+}
+
+variable "openstack_secgroup" {
+    description = "The name of the security group to use for the lattice cluster."
 }
 
 variable "openstack_public_key" {
