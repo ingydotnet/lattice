@@ -52,7 +52,7 @@ module "lattice-openstack" {
     openstack_floating_ip_pool_name = "Ext-Net"
 
     # The name of the Openstack Glance image used to spin up all VM instances.
-    openstack_image = "Ubuntu Server 14.04.1 LTS (amd64 20140927) - Partner Image"
+    openstack_image = "Ubuntu Server 14.04.1 LTS (amd64 20150706) - Partner Image"
 
     #If you wish to use your own lattice release instead of the latest version, uncomment the variable assignment below
     #and set it to your own lattice tar's path.
