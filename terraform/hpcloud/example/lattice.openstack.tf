@@ -1,5 +1,5 @@
 module "lattice-openstack" {
-    source = "github.com/hpcloud/lattice//terraform//hpcloud?ref=hpcloudV3"
+    source = "github.com/hpcloud/lattice//terraform//hpcloud?ref=hpcloud-v0.3.0"
 
     # OpenStack User Account (your hpcloud.com username)
     openstack_access_key = "<CHANGE-ME>"
