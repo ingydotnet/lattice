@@ -1,8 +1,10 @@
 package setup_cli
 
 import (
+	"io"
 	"os"
 	"os/signal"
+	"runtime"
 
 	"github.com/cloudfoundry-incubator/lattice/ltc/cli_app_factory"
 	"github.com/cloudfoundry-incubator/lattice/ltc/config"
@@ -12,6 +14,7 @@ import (
 	"github.com/cloudfoundry-incubator/lattice/ltc/exit_handler"
 	"github.com/cloudfoundry-incubator/receptor"
 	"github.com/codegangsta/cli"
+	"github.com/fatih/color"
 	"github.com/pivotal-golang/lager"
 )
 
@@ -31,6 +34,13 @@ func NewCliApp() *cli.App {
 		return receptor.NewClient(target)
 	})
 
+	var stdout io.Writer
+	stdout = os.Stdout
+
+	if runtime.GOOS == "windows" {
+		stdout = color.Output
+	}
+
 	return cli_app_factory.MakeCliApp(
 		diegoVersion,
 		latticeVersion,
@@ -39,7 +49,7 @@ func NewCliApp() *cli.App {
 		config,
 		logger(),
 		targetVerifier,
-		os.Stdout,
+		stdout,
 	)
 }
 
