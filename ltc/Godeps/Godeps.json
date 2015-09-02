@@ -217,6 +217,11 @@
 			"Rev": "c54fbb67c1f1e68d7d6f8d2ad7c9360404616a41"
 		},
 		{
+			"ImportPath": "github.com/fatih/color",
+			"Comment": "v0.1-8-g76d4231",
+			"Rev": "76d423163af754ff6423d2d9be0057fbf03c57c2"
+		},
+		{
 			"ImportPath": "github.com/gizak/termui",
 			"Rev": "ce9bf21e3a5dd9e751030b4c55b00279c6d2fec0"
 		},
@@ -239,6 +244,10 @@
 		{
 			"ImportPath": "github.com/gorilla/websocket",
 			"Rev": "2dbddebb8266b93c5e6b119efb54e89043186f3f"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-isatty",
+			"Rev": "7fcbc72f853b92b5720db4a6b8482be612daef24"
 		},
 		{
 			"ImportPath": "github.com/mattn/go-runewidth",
@@ -276,6 +285,10 @@
 			"Rev": "c88fa6d6c4d2f8a21a4599785211e41777750d34"
 		},
 		{
+			"ImportPath": "github.com/shiena/ansicolor",
+			"Rev": "a5e2b567a4dd6cc74545b8a4f27c9d63b9e7735b"
+		},
+		{
 			"ImportPath": "github.com/tedsuo/rata",
 			"Rev": "6197c97c67a03bfd4d6977a3b6060d6c6b3d581f"
 		},
@@ -286,10 +299,6 @@
 		{
 			"ImportPath": "github.com/vito/go-sse/sse",
 			"Rev": "bfb56c5590376a59535cd0edb3f5aa3447dbbe65"
-		},
-		{
-			"ImportPath": "github.com/fatih/color",
-			"Rev": "76d423163af754ff6423d2d9be0057fbf03c57c2"
 		}
 	]
 }
