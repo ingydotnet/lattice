@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"os/user"
 	"runtime"
 
 	"github.com/cloudfoundry-incubator/lattice/ltc/cli_app_factory"
@@ -72,5 +73,14 @@ func ltcConfigRoot() string {
 		return os.Getenv(latticeCliHomeVar)
 	}
 
-	return os.Getenv("HOME")
+	return getUserHomeDir()
+}
+
+func getUserHomeDir() string {
+	usr, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+
+	return usr.HomeDir
 }
