@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -21,8 +22,10 @@ import (
 )
 
 const (
-	DropletStack  = "cflinuxfs2"
-	DropletRootFS = "preloaded:" + DropletStack
+	DropletStack         = "cflinuxfs2"
+	DropletWindowsStack  = "buildpack"
+	DropletRootFS        = "preloaded:" + DropletStack
+	DropletWindowsRootFS = "windowsservercore:" + DropletWindowsStack
 )
 
 //go:generate counterfeiter -o fake_droplet_runner/fake_droplet_runner.go . DropletRunner
@@ -100,6 +103,95 @@ func (dr *dropletRunner) UploadBits(dropletName, uploadPath string) error {
 	}
 
 	return dr.blobStore.Upload(path.Join(dropletName, "bits.zip"), uploadFile)
+}
+
+// TODO: this implementation is hardcoded to use a webdav blobstore
+func (dr *dropletRunner) BuildWindowsDroplet(taskName, dropletName, buildpackUrl string, environment map[string]string, memoryMB, cpuWeight, diskMB int) error {
+	builderConfig := buildpack_app_lifecycle.NewLifecycleBuilderConfig([]string{buildpackUrl}, true, false)
+
+	blobStoreURL := url.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s:%s", dr.config.BlobStore().Host, dr.config.BlobStore().Port),
+		User:   url.UserPassword(dr.config.BlobStore().Username, dr.config.BlobStore().Password),
+	}
+
+	action := &models.SerialAction{
+		Actions: []models.Action{
+			&models.DownloadAction{
+				From: "https://region-b.geo-1.objects.hpcloudsvc.com/v1/10990308817909/pelerinul/davtool.zip",
+				To:   "c:\\tmp",
+				User: "dummy",
+			},
+			&models.DownloadAction{
+				From: blobStoreURL.String() + "/blobs/" + dropletName + "/bits.zip",
+				To:   "c:\\tmp\\app",
+				User: "dummy",
+			},
+			&models.RunAction{
+				Path: "c:\\tmp\\davtool",
+				Dir:  "c:\\",
+				Args: []string{"delete", blobStoreURL.String() + "/blobs/" + dropletName + "/bits.zip"},
+				User: "dummy",
+			},
+
+			// Detect
+			// cmd /c .\bin\detect.bat TestApps\iis8
+			// output is "detected_buildpack"
+			//
+			// Release
+			// cmd /c .\bin\release.bat TestApps\iis8
+			// output is yaml with "detected_start_command" as "default_process_type/web"
+			//
+			// Compile
+			// cmd /c .\bin\compile.bat TestApps\iis8 cache
+
+			// THIS NEEDS REPLACING
+			&models.RunAction{
+				Path: "c:\\tmp\\builder",
+				Dir:  "c:\\",
+				Args: builderConfig.Args(),
+				User: "dummy",
+			},
+			&models.RunAction{
+				Path: "c:\\tmp\\davtool",
+				Dir:  "c:\\",
+				Args: []string{"put", blobStoreURL.String() + "/blobs/" + dropletName + "/droplet.zip", "c:\\tmp\\droplet"},
+				User: "dummy",
+			},
+
+			//{
+			//	"buildpack_key": "",
+			//	"detected_buildpack": "",
+			//	"execution_metadata": "",
+			//	"detected_start_command": ""
+			//}
+			// {"buildpack_key":"https://github.com/cloudfoundry/nodejs-buildpack","detected_buildpack":"","execution_metadata":"{\"start_command\":\"npm start\"}","detected_start_command":{"web":"npm start"}}
+			&models.RunAction{
+				Path: "c:\\tmp\\davtool",
+				Dir:  "c:\\",
+				Args: []string{"put", blobStoreURL.String() + "/blobs/" + dropletName + "/result.json", "c:\\tmp\\result.json"},
+				User: "dummy",
+			},
+		},
+	}
+
+	environment["CF_STACK"] = DropletWindowsStack
+	environment["MEMORY_LIMIT"] = fmt.Sprintf("%dM", memoryMB)
+
+	createTaskParams := task_runner.NewCreateTaskParams(
+		action,
+		taskName,
+		DropletWindowsRootFS,
+		"lattice",
+		"BUILD",
+		environment,
+		[]models.SecurityGroupRule{},
+		memoryMB,
+		cpuWeight,
+		diskMB,
+	)
+
+	return dr.taskRunner.CreateTask(createTaskParams)
 }
 
 func (dr *dropletRunner) BuildDroplet(taskName, dropletName, buildpackUrl string, environment map[string]string, memoryMB, cpuWeight, diskMB int) error {
