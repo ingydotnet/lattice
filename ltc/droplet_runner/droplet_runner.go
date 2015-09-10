@@ -175,8 +175,9 @@ func (dr *dropletRunner) BuildWindowsDroplet(taskName, dropletName, buildpackUrl
 					`$fileSystemAssemblyPath = Join-Path ([System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) 'System.IO.Compression.FileSystem.dll';`,
 					`Add-Type -Path $fileSystemAssemblyPath;`,
 					`[System.IO.Compression.ZipFile]::CreateFromDirectory('c:\tmp\app','c:\tmp\droplet.zip',[System.IO.Compression.CompressionLevel]::Optimal, $false);`,
+					`$executionMetadata = (@{ 'start_command' = $startCommand } | ConvertTo-Json | Out-String);`,
 					fmt.Sprintf(
-						`@{'buildpack-key' = '%s'; 'detected-buildpack' = ''; 'execution_metadata' = '{\"start_command\":\"' + $startCommand + '\"}'; 'detected_start_command' = @{ 'web' = $startCommand } } | ConvertTo-Json | Out-File -Encoding 'ASCII' c:\tmp\result.json;`,
+						`@{'buildpack-key' = '%s'; 'detected-buildpack' = ''; 'execution_metadata' = $executionMetadata; 'detected_start_command' = @{ 'web' = $startCommand } } | ConvertTo-Json | Out-File -Encoding 'ASCII' c:\tmp\result.json;`,
 						buildpackUrl,
 					),
 					`"`,
@@ -338,10 +339,20 @@ func (dr *dropletRunner) LaunchWindowsDroplet(appName, dropletName string, start
 		appEnvironmentParams.EnvironmentVariables = map[string]string{}
 	}
 
+	appEnvironmentParams.EnvironmentVariables["HOME"] = "c:\\app"
+	appEnvironmentParams.EnvironmentVariables["HOMEPATH"] = "c:\\"
+
 	appEnvironmentParams.WorkingDir = "c:\\app"
 	appEnvironmentParams.Monitor = app_runner.MonitorConfig{
 		Method: app_runner.WindowsMonitor,
 	}
+
+	var executionMetadataJSON interface{}
+	err = json.Unmarshal([]byte(executionMetadata), &executionMetadataJSON)
+	if err != nil {
+		return err
+	}
+	executionMetadataMap := executionMetadataJSON.(map[string]interface{})
 
 	appParams := app_runner.CreateAppParams{
 		AppEnvironmentParams: appEnvironmentParams,
@@ -353,9 +364,8 @@ func (dr *dropletRunner) LaunchWindowsDroplet(appName, dropletName string, start
 		AppArgs: []string{
 			`-command`,
 			`"`,
-			fmt.Sprintf(`$start = ('%s' | ConvertFrom-Json).start_command;`, executionMetadata),
 			`cd c:\app;`,
-			`& $start;`,
+			fmt.Sprintf(`& %s;`, executionMetadataMap["start_command"]),
 			`"`,
 		},
 
