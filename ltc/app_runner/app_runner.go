@@ -348,8 +348,15 @@ func (appRunner *appRunner) desireLrp(params CreateAppParams) error {
 		}
 	case WindowsMonitor:
 		req.Monitor = &models.RunAction{
-			Path:      "c:\\windows\\system32\\cmd.exe",
-			Args:      []string{"/c", "exit 1"},
+			Path: "powershell.exe",
+			Args: []string{
+				`-command`,
+				`"`,
+				`$localIPAddress = (Get-NetIPAddress | where { ($_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork) -and ($_.InterfaceAlias -Like 'vEthernet*') }).IPAddress;`,
+				`if ([string]::IsNullOrWhitespace($localIPAddress)) { Write-Output 'Cannot find a local IP address'; exit 1; };`,
+				`if ((Test-NetConnection $localIPAddress -port $env:PORT).TcpTestSucceeded -eq $false) { exit 1 };`,
+				`"`,
+			},
 			LogSource: "HEALTH",
 			User:      params.User,
 		}
