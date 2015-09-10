@@ -87,6 +87,7 @@ const (
 	PortMonitor
 	URLMonitor
 	CustomMonitor
+	WindowsMonitor
 
 	AttemptedToCreateLatticeDebugErrorMessage = reserved_app_ids.LatticeDebugLogStreamAppId + " is a reserved app name. It is used internally to stream debug logs for lattice components."
 )
@@ -342,6 +343,13 @@ func (appRunner *appRunner) desireLrp(params CreateAppParams) error {
 		req.Monitor = &models.RunAction{
 			Path:      "/bin/sh",
 			Args:      []string{"-c", params.Monitor.CustomCommand},
+			LogSource: "HEALTH",
+			User:      params.User,
+		}
+	case WindowsMonitor:
+		req.Monitor = &models.RunAction{
+			Path:      "c:\\windows\\system32\\cmd.exe",
+			Args:      []string{"/c", "exit 1"},
 			LogSource: "HEALTH",
 			User:      params.User,
 		}

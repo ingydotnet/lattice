@@ -32,7 +32,9 @@ const (
 type DropletRunner interface {
 	UploadBits(dropletName, uploadPath string) error
 	BuildDroplet(taskName, dropletName, buildpackUrl string, environment map[string]string, memoryMB, cpuWeight, diskMB int) error
+	BuildWindowsDroplet(taskName, dropletName, buildpackUrl string, environment map[string]string, memoryMB, cpuWeight, diskMB int) error
 	LaunchDroplet(appName, dropletName, startCommand string, startArgs []string, appEnvironmentParams app_runner.AppEnvironmentParams) error
+	LaunchWindowsDroplet(appName, dropletName, startCommand string, startArgs []string, appEnvironmentParams app_runner.AppEnvironmentParams) error
 	ListDroplets() ([]Droplet, error)
 	RemoveDroplet(dropletName string) error
 	ExportDroplet(dropletName string) (io.ReadCloser, io.ReadCloser, error)
@@ -88,7 +90,7 @@ func (dr *dropletRunner) ListDroplets() ([]Droplet, error) {
 	droplets := []Droplet{}
 	for _, blob := range blobs {
 		pathComponents := strings.Split(blob.Path, "/")
-		if len(pathComponents) == 2 && pathComponents[len(pathComponents)-1] == "droplet.tgz" {
+		if len(pathComponents) == 2 && (pathComponents[len(pathComponents)-1] == "droplet.tgz" || pathComponents[len(pathComponents)-1] == "droplet.zip") {
 			droplets = append(droplets, Droplet{Name: pathComponents[len(pathComponents)-2], Size: blob.Size, Created: blob.Created})
 		}
 	}
@@ -107,7 +109,6 @@ func (dr *dropletRunner) UploadBits(dropletName, uploadPath string) error {
 
 // TODO: this implementation is hardcoded to use a webdav blobstore
 func (dr *dropletRunner) BuildWindowsDroplet(taskName, dropletName, buildpackUrl string, environment map[string]string, memoryMB, cpuWeight, diskMB int) error {
-	builderConfig := buildpack_app_lifecycle.NewLifecycleBuilderConfig([]string{buildpackUrl}, true, false)
 
 	blobStoreURL := url.URL{
 		Scheme: "http",
@@ -119,12 +120,17 @@ func (dr *dropletRunner) BuildWindowsDroplet(taskName, dropletName, buildpackUrl
 		Actions: []models.Action{
 			&models.DownloadAction{
 				From: "https://region-b.geo-1.objects.hpcloudsvc.com/v1/10990308817909/pelerinul/davtool.zip",
-				To:   "c:\\tmp",
+				To:   "tmp",
 				User: "dummy",
 			},
 			&models.DownloadAction{
 				From: blobStoreURL.String() + "/blobs/" + dropletName + "/bits.zip",
-				To:   "c:\\tmp\\app",
+				To:   "tmp\\app",
+				User: "dummy",
+			},
+			&models.DownloadAction{
+				From: buildpackUrl,
+				To:   "tmp\\buildpack",
 				User: "dummy",
 			},
 			&models.RunAction{
@@ -133,7 +139,6 @@ func (dr *dropletRunner) BuildWindowsDroplet(taskName, dropletName, buildpackUrl
 				Args: []string{"delete", blobStoreURL.String() + "/blobs/" + dropletName + "/bits.zip"},
 				User: "dummy",
 			},
-
 			// Detect
 			// cmd /c .\bin\detect.bat TestApps\iis8
 			// output is "detected_buildpack"
@@ -144,28 +149,47 @@ func (dr *dropletRunner) BuildWindowsDroplet(taskName, dropletName, buildpackUrl
 			//
 			// Compile
 			// cmd /c .\bin\compile.bat TestApps\iis8 cache
-
-			// THIS NEEDS REPLACING
+			//
+			// Sample result.json
+			// {
+			//  "buildpack_key": "https://github.com/cloudfoundry/nodejs-buildpack",
+			//  "detected_buildpack":"",
+			//  "execution_metadata":"{\"start_command\":\"npm start\"}",
+			//  "detected_start_command":{"web":"npm start"}
+			// }
 			&models.RunAction{
-				Path: "c:\\tmp\\builder",
-				Dir:  "c:\\",
-				Args: builderConfig.Args(),
+				Path: "powershell.exe",
+				Dir:  "c:\\tmp",
+				Args: []string{
+					`-command`,
+					`"`,
+					`cp -Recurse .\buildpack\*\* .\buildpack\ -ErrorAction SilentlyContinue;`,
+					`$detectedBuildpack = (& C:\tmp\buildpack\bin\detect.bat C:\tmp\app | Out-String);`,
+					`if ($LASTEXITCODE -ne 0) { exit 10 };`,
+					`$releaseYaml = (& C:\tmp\buildpack\bin\release.bat C:\tmp\app | Out-String);`,
+					`if ($LASTEXITCODE -ne 0) { exit 11 };`,
+					`$releaseYaml -match '\s+web:\s(?<start>.+)';`,
+					`$startCommand = $Matches['start'].Trim();`,
+					`& C:\tmp\buildpack\bin\compile.bat C:\tmp\app c:\tmp\cache;`,
+					`if ($LASTEXITCODE -ne 0) { exit 12 };`,
+					`$fileSystemAssemblyPath = Join-Path ([System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) 'System.IO.Compression.FileSystem.dll';`,
+					`Add-Type -Path $fileSystemAssemblyPath;`,
+					`[System.IO.Compression.ZipFile]::CreateFromDirectory('c:\tmp\app','c:\tmp\droplet.zip',[System.IO.Compression.CompressionLevel]::Optimal, $false);`,
+					fmt.Sprintf(
+						`@{'buildpack-key' = '%s'; 'detected-buildpack' = ''; 'execution_metadata' = '{\"start_command\":\"' + $startCommand + '\"}'; 'detected_start_command' = @{ 'web' = $startCommand } } | ConvertTo-Json | Out-File -Encoding 'ASCII' c:\tmp\result.json;`,
+						buildpackUrl,
+					),
+					`"`,
+				},
 				User: "dummy",
 			},
+
 			&models.RunAction{
 				Path: "c:\\tmp\\davtool",
 				Dir:  "c:\\",
-				Args: []string{"put", blobStoreURL.String() + "/blobs/" + dropletName + "/droplet.zip", "c:\\tmp\\droplet"},
+				Args: []string{"put", blobStoreURL.String() + "/blobs/" + dropletName + "/droplet.zip", "c:\\tmp\\droplet.zip"},
 				User: "dummy",
 			},
-
-			//{
-			//	"buildpack_key": "",
-			//	"detected_buildpack": "",
-			//	"execution_metadata": "",
-			//	"detected_start_command": ""
-			//}
-			// {"buildpack_key":"https://github.com/cloudfoundry/nodejs-buildpack","detected_buildpack":"","execution_metadata":"{\"start_command\":\"npm start\"}","detected_start_command":{"web":"npm start"}}
 			&models.RunAction{
 				Path: "c:\\tmp\\davtool",
 				Dir:  "c:\\",
@@ -291,6 +315,58 @@ func (dr *dropletRunner) LaunchDroplet(appName, dropletName string, startCommand
 					User: "vcap",
 				},
 				dr.blobStore.DownloadDropletAction(dropletName),
+			},
+		},
+	}
+
+	return dr.appRunner.CreateApp(appParams)
+}
+
+func (dr *dropletRunner) LaunchWindowsDroplet(appName, dropletName string, startCommand string, startArgs []string, appEnvironmentParams app_runner.AppEnvironmentParams) error {
+	executionMetadata, err := dr.getExecutionMetadata(path.Join(dropletName, "result.json"))
+	if err != nil {
+		return err
+	}
+
+	blobStoreURL := url.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s:%s", dr.config.BlobStore().Host, dr.config.BlobStore().Port),
+		User:   url.UserPassword(dr.config.BlobStore().Username, dr.config.BlobStore().Password),
+	}
+
+	if appEnvironmentParams.EnvironmentVariables == nil {
+		appEnvironmentParams.EnvironmentVariables = map[string]string{}
+	}
+
+	appEnvironmentParams.WorkingDir = "c:\\app"
+	appEnvironmentParams.Monitor = app_runner.MonitorConfig{
+		Method: app_runner.WindowsMonitor,
+	}
+
+	appParams := app_runner.CreateAppParams{
+		AppEnvironmentParams: appEnvironmentParams,
+
+		Name:         appName,
+		RootFS:       DropletWindowsRootFS,
+		StartCommand: "powershell.exe",
+
+		AppArgs: []string{
+			`-command`,
+			`"`,
+			fmt.Sprintf(`$start = ('%s' | ConvertFrom-Json).start_command;`, executionMetadata),
+			`cd c:\app;`,
+			`& $start;`,
+			`"`,
+		},
+
+		Setup: &models.SerialAction{
+			LogSource: appName,
+			Actions: []models.Action{
+				&models.DownloadAction{
+					From: blobStoreURL.String() + "/blobs/" + dropletName + "/droplet.zip",
+					To:   "app",
+					User: "vcap",
+				},
 			},
 		},
 	}

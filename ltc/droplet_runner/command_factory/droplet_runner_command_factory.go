@@ -128,6 +128,10 @@ func (factory *DropletRunnerCommandFactory) MakeBuildDropletCommand() cli.Comman
 			Usage: "Polling timeout for app to start",
 			Value: app_runner_command_factory.DefaultPollingTimeout,
 		},
+		cli.BoolFlag{
+			Name:  "windows, win",
+			Usage: "Build the droplet on a Windows cell",
+		},
 	}
 
 	var buildDropletCommand = cli.Command{
@@ -212,6 +216,10 @@ func (factory *DropletRunnerCommandFactory) MakeLaunchDropletCommand() cli.Comma
 			Name:  "timeout, t",
 			Usage: "Polling timeout for app to start",
 			Value: app_runner_command_factory.DefaultPollingTimeout,
+		},
+		cli.BoolFlag{
+			Name:  "windows, win",
+			Usage: "Run the droplet on a Windows cell",
 		},
 	}
 
@@ -345,6 +353,7 @@ func (factory *DropletRunnerCommandFactory) buildDroplet(context *cli.Context) {
 	diskMBFlag := context.Int("disk-mb")
 	envFlag := context.StringSlice("env")
 	timeoutFlag := context.Duration("timeout")
+	windowsFlag := context.Bool("windows")
 	dropletName := context.Args().First()
 	buildpack := context.Args().Get(1)
 
@@ -423,10 +432,19 @@ func (factory *DropletRunnerCommandFactory) buildDroplet(context *cli.Context) {
 	environment := factory.AppRunnerCommandFactory.BuildEnvironment(envFlag)
 
 	taskName := "build-droplet-" + dropletName
-	if err := factory.dropletRunner.BuildDroplet(taskName, dropletName, buildpackUrl, environment, memoryMBFlag, cpuWeightFlag, diskMBFlag); err != nil {
-		factory.UI.SayLine(fmt.Sprintf("Error submitting build of %s: %s", dropletName, err))
-		factory.ExitHandler.Exit(exit_codes.CommandFailed)
-		return
+
+	if windowsFlag {
+		if err := factory.dropletRunner.BuildWindowsDroplet(taskName, dropletName, buildpackUrl, environment, memoryMBFlag, cpuWeightFlag, diskMBFlag); err != nil {
+			factory.UI.SayLine(fmt.Sprintf("Error submitting build of %s: %s", dropletName, err))
+			factory.ExitHandler.Exit(exit_codes.CommandFailed)
+			return
+		}
+	} else {
+		if err := factory.dropletRunner.BuildDroplet(taskName, dropletName, buildpackUrl, environment, memoryMBFlag, cpuWeightFlag, diskMBFlag); err != nil {
+			factory.UI.SayLine(fmt.Sprintf("Error submitting build of %s: %s", dropletName, err))
+			factory.ExitHandler.Exit(exit_codes.CommandFailed)
+			return
+		}
 	}
 
 	factory.UI.SayLine("Submitted build of " + dropletName)
@@ -496,6 +514,7 @@ func (factory *DropletRunnerCommandFactory) launchDroplet(context *cli.Context) 
 	tcpRoutesFlag := context.String("tcp-routes")
 	noRoutesFlag := context.Bool("no-routes")
 	timeoutFlag := context.Duration("timeout")
+	windowsFlag := context.Bool("windows")
 	appName := context.Args().Get(0)
 	dropletName := context.Args().Get(1)
 	terminator := context.Args().Get(2)
@@ -566,10 +585,19 @@ func (factory *DropletRunnerCommandFactory) launchDroplet(context *cli.Context) 
 
 	appEnvironmentParams.EnvironmentVariables["MEMORY_LIMIT"] = fmt.Sprintf("%dM", memoryMBFlag)
 
-	if err := factory.dropletRunner.LaunchDroplet(appName, dropletName, startCommand, startArgs, appEnvironmentParams); err != nil {
-		factory.UI.SayLine(fmt.Sprintf("Error launching app %s from droplet %s: %s", appName, dropletName, err))
-		factory.ExitHandler.Exit(exit_codes.CommandFailed)
-		return
+	if windowsFlag {
+		if err := factory.dropletRunner.LaunchWindowsDroplet(appName, dropletName, startCommand, startArgs, appEnvironmentParams); err != nil {
+			factory.UI.SayLine(fmt.Sprintf("Error launching app %s from droplet %s: %s", appName, dropletName, err))
+			factory.ExitHandler.Exit(exit_codes.CommandFailed)
+			return
+		}
+
+	} else {
+		if err := factory.dropletRunner.LaunchDroplet(appName, dropletName, startCommand, startArgs, appEnvironmentParams); err != nil {
+			factory.UI.SayLine(fmt.Sprintf("Error launching app %s from droplet %s: %s", appName, dropletName, err))
+			factory.ExitHandler.Exit(exit_codes.CommandFailed)
+			return
+		}
 	}
 
 	factory.WaitForAppCreation(appName, timeoutFlag, instancesFlag, noRoutesFlag, routeOverrides, tcpRoutes, monitorConfig.Port, exposedPorts)
