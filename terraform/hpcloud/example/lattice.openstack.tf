@@ -10,10 +10,12 @@ module "lattice-openstack" {
     # OpenStack Tenant Name
     openstack_tenant_name = "<CHANGE-ME>"
 
-    # Security Group Name (do not use an existing security group, a new one will be created for you)
+    # Security Group Name (do not use an existing security group, a new one
+    # will be created for you)
     openstack_secgroup = "lattice-sg"
 
-    # SSH Key Name (do not use an existing key-name, a new one will be created for you)
+    # SSH Key Name (do not use an existing key-name, a new one will be created
+    # for you)
     openstack_key_name = "<CHANGE-ME>"
 
     # SSH Public Key to Upload
@@ -57,8 +59,9 @@ module "lattice-openstack" {
     # The name of the Openstack Glance image used to spin up all VM instances.
     openstack_image = "Ubuntu Server 14.04.1 LTS (amd64 20150706) - Partner Image"
 
-    #If you wish to use your own lattice release instead of the latest version, uncomment the variable assignment below
-    #and set it to your own lattice tar's path.
+    # If you wish to use your own lattice release instead of the latest version,
+    # uncomment the variable assignment below and set it to your own lattice tar's
+    # path.
     # local_lattice_tar_path = "~/lattice.tgz"
 
     # Openstack Region (Blank default for 'no region' installations)
