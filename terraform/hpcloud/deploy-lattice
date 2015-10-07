@@ -1,0 +1,104 @@
+#!/bin/bash
+
+set -e
+# set -x # for debugging
+
+die() { echo "$@" >&2; exit 1; }
+
+main() {
+  ROOT="${1:?Usage: $0 <new-directory-name>}"
+
+  [[ ! -e "$ROOT" ]] ||
+    die "$ROOT already exists. Choose a new directory name"
+
+  lattice-setup
+
+  write-success-message
+}
+
+lattice-setup() {
+  (
+    mkdir "$ROOT"
+    cd "$ROOT"
+
+    generate-key-pair
+    check-env-vars
+    get-lattice-template
+    render-lattice-template
+    deploy-cluster
+  )
+}
+
+generate-key-pair() {
+  ssh-keygen -f sshkey -P '' -N '' >/dev/null
+}
+
+check-env-vars() {
+  # Pairs of variables. On the left side of / are the Terraform variables,
+  # which are assumed to be prefixed by 'openstack_'. On the right are:
+  # * Start w/ %: HPCloud OpenStack variables which are prefixed by OS_
+  # * Else the actual value to be used
+  variable_pairs=(
+    region/%REGION_NAME
+    tenant_name/%TENANT_NAME
+    access_key/%USERNAME
+    secret_key/%PASSWORD
+    secgroup/lattice-sg-$$
+    key_name/lattice-sshkey-$$
+    "public_key/$(cat sshkey.pub)"
+    ssh_private_key_file/sshkey
+  )
+
+  for v in "${variable_pairs[@]}"; do
+    [[ $v =~ % ]] || continue
+    v="${v/\%/}"
+    v="OS_${v#*/}"
+    [[ -n "${!v}" ]] ||
+      die "'$v' variable is not set"
+  done
+}
+
+get-lattice-template() {
+  wget https://github.com/hpcloud/lattice/raw/hpcloud-v0.3.3/terraform/hpcloud/example/lattice.openstack.tf \
+    &> /dev/null
+}
+
+render-lattice-template() {
+  for pair in "${variable_pairs[@]}"; do
+    tf_var="openstack_${pair%%/*}"
+    if [[ $pair =~ % ]]; then
+      os_var="${pair/\%/}"
+      os_var="OS_${os_var#*/}"
+      os_val=${!os_var}
+    else
+      os_val="${pair#*/}"
+    fi
+    set-conf-value "$tf_var" "$os_val"
+  done
+  if [[ $OS_REGION_NAME == region-a.geo-1 ]]; then
+    set-conf-value \
+      openstack_neutron_router_gateway_network_id \
+      122c72de-0924-4b9f-8cf3-b18d5d3d292c
+  fi
+}
+
+set-conf-value() {
+  perl -pi -e \
+    "\$str=q{$2};s/($1 = ).*/\$1\"\$str\"/" \
+    lattice.openstack.tf
+}
+
+deploy-cluster() {
+  terraform get -update
+  terraform apply
+}
+
+write-success-message() {
+  cat <<...
+Lattice cluster successfully deployed in $ROOT.
+...
+}
+
+[[ $0 != $BASH_SOURCE ]] || main "$@"
+
+# vim: set ft=sh lisp:
